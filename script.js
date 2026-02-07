@@ -3,7 +3,7 @@ const ctx = canvas.getContext('2d');
 
 let width, height;
 
-// Debounce helper to prevent excessive resizing calls
+// Debounce helper
 function debounce(func, wait) {
     let timeout;
     return function () {
@@ -16,40 +16,35 @@ function debounce(func, wait) {
 function resize() {
     const parent = document.querySelector('.right-side');
     if (parent) {
-        // Get actual display size
         const displayWidth = parent.clientWidth;
         const displayHeight = parent.clientHeight;
 
-        if (displayWidth === 0 || displayHeight === 0) return; // Not visible yet
+        if (displayWidth === 0 || displayHeight === 0) return;
 
-        // Check Device Pixel Ratio for sharp rendering on mobile
+        // Fix blur on High DPI screens
         const dpr = window.devicePixelRatio || 1;
 
-        // Set the internal resolution
         canvas.width = displayWidth * dpr;
         canvas.height = displayHeight * dpr;
 
-        // Set the CSS display size
         canvas.style.width = displayWidth + 'px';
         canvas.style.height = displayHeight + 'px';
 
-        // Normalize coordinate system to use CSS pixels
         ctx.scale(dpr, dpr);
 
-        // Update global width/height for drawing logic (using logical pixels)
         width = displayWidth;
         height = displayHeight;
 
-        // Redraw
-        initTree();
+        // Debounce initTree to prevent flickering
+        clearTimeout(window.initTimer);
+        window.initTimer = setTimeout(initTree, 50);
     }
 }
 
-// Listen to resize and orientation change
-window.addEventListener('resize', debounce(resize, 150));
-window.addEventListener('orientationchange', () => setTimeout(resize, 200));
+window.addEventListener('resize', debounce(resize, 200));
+window.addEventListener('orientationchange', () => setTimeout(resize, 500));
 
-// --- TREE CONFIGURATION ---
+// --- CONFIG ---
 const branchColor = '#000000';
 const heartColors = ['#ff0000', '#c90000', '#ff4d6d', '#800f2f', '#ff8fa3'];
 let maxDepth = 12;
@@ -86,10 +81,10 @@ function drawBranch(startX, startY, length, angle, depth, currentWidth) {
     ctx.lineCap = 'round';
     ctx.stroke();
 
-    // Hearts on tree (foliage)
     if (depth < 8) {
         const density = 1;
-        const baseDelay = (maxDepth - depth) * 50;
+        // Faster blooming
+        const baseDelay = (maxDepth - depth) * 40;
         const randomDelay = Math.random() * 500;
 
         setTimeout(() => {
@@ -98,7 +93,8 @@ function drawBranch(startX, startY, length, angle, depth, currentWidth) {
                 const bx = startX + (endX - startX) * t;
                 const by = startY + (endY - startY) * t;
 
-                const spread = 20 * (1 + (8 - depth) / 3);
+                // Reduce spread for tighter look
+                const spread = 15 * (1 + (8 - depth) / 3);
                 const ox = (Math.random() - 0.5) * spread;
                 const oy = (Math.random() - 0.5) * spread;
 
@@ -107,41 +103,41 @@ function drawBranch(startX, startY, length, angle, depth, currentWidth) {
 
                 drawHeart(bx + ox, by + oy, hSize, hAngle);
             }
-        }, baseDelay + randomDelay + 300);
+        }, baseDelay + randomDelay + 200);
     }
 
     if (depth === 0) return;
 
-    const subBranches = (Math.random() < 0.8) ? 2 : 3;
+    const subBranches = (Math.random() < 0.75) ? 2 : 3;
 
     setTimeout(() => {
         for (let i = 0; i < subBranches; i++) {
-            const angleVariance = 0.8;
+            const angleVariance = 0.85;
             const newAngle = angle + (Math.random() * angleVariance - angleVariance / 2);
-            const newLength = length * (0.7 + Math.random() * 0.1);
+            // Decay length faster
+            const newLength = length * (0.68 + Math.random() * 0.1);
             const newWidth = currentWidth * 0.7;
 
             drawBranch(endX, endY, newLength, newAngle, depth - 1, newWidth);
         }
-    }, 10);
+    }, 5);
 }
 
 function initTree() {
     if (!width || !height) return;
-
-    // Clear canvas based on logical size
     ctx.clearRect(0, 0, width, height);
 
-    // Determine screen type
-    const isMobile = width < 768 || height < 600;
+    // Check if we are on a small screen (Rotated or Landscape)
+    const isMobile = window.innerWidth < 900 || window.innerHeight < 600;
 
     let initialLength, initialWidth;
 
     if (isMobile) {
-        // Safe size for mobile to ensure it fits
-        maxDepth = 10; // Reduce depth for performance/size on mobile
-        initialLength = Math.min(height * 0.22, 110);
-        initialWidth = 18;
+        maxDepth = 10;
+        // DRASTICALLY REDUCED SIZE FOR MOBILE
+        // Previously ~ 0.22, now 0.14
+        initialLength = Math.min(height * 0.14, 75);
+        initialWidth = 10; // Very thin trunk
     } else {
         // Desktop
         maxDepth = 12;
@@ -149,15 +145,14 @@ function initTree() {
         initialWidth = 35;
     }
 
-    // Draw trunk from bottom center
-    // We start slightly above the bottom to show the root
+    // Draw from bottom center
     drawBranch(width / 2, height, initialLength, -Math.PI / 2, maxDepth, initialWidth);
 }
 
-// Falling hearts animation (DOM based)
+// Falling hearts
 function spawnFallingHeart() {
     const container = document.querySelector('.right-side');
-    if (!container) return;
+    if (!container || container.offsetWidth === 0) return;
 
     const heart = document.createElement('div');
     heart.classList.add('falling-heart-tree');
@@ -169,7 +164,7 @@ function spawnFallingHeart() {
     heart.style.left = leftPos + '%';
     heart.style.top = topPos + '%';
 
-    const size = 15 + Math.random() * 15;
+    const size = 12 + Math.random() * 12; // Smaller falling hearts too
     const color = heartColors[Math.floor(Math.random() * heartColors.length)];
     heart.style.fontSize = size + 'px';
     heart.style.color = color;
@@ -194,11 +189,9 @@ function startFallingHearts() {
 
 function createFloatingHearts() {
     const container = document.body;
-    // Don't remove old ones to avoid flickering, just ensure we have them?
-    // Better to clear for reset
     document.querySelectorAll('.floating-heart').forEach(h => h.remove());
 
-    const count = 30;
+    const count = 25;
     for (let i = 0; i < count; i++) {
         const heart = document.createElement('div');
         heart.classList.add('floating-heart');
@@ -210,9 +203,7 @@ function createFloatingHearts() {
     }
 }
 
-// Boot
 window.onload = () => {
-    // Force initial resize
     resize();
     createFloatingHearts();
     startFallingHearts();

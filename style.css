@@ -13,6 +13,7 @@ html {
     width: 100%;
     height: 100%;
     overflow: hidden;
+    /* Prevent scrolling on the page level */
     font-family: 'Montserrat', sans-serif;
     background: var(--bg-gradient);
     color: var(--text-color);
@@ -21,9 +22,12 @@ html {
 .container {
     display: flex;
     width: 100%;
-    height: 100vh;
+    height: 100%;
+    background: var(--bg-gradient);
+    /* Ensure background rotates with container */
 }
 
+/* LEFT SIDE - TEXT */
 .left-side {
     flex: 1;
     display: flex;
@@ -32,6 +36,8 @@ html {
     padding: 2rem;
     position: relative;
     z-index: 10;
+    overflow-y: auto;
+    /* Allow text scroll */
 }
 
 .love-letter {
@@ -47,23 +53,17 @@ html {
     font-size: 1.5rem;
     line-height: 1.6;
     animation: fadeIn 2s ease-out forwards;
-    opacity: 0;
-    transform: translateY(20px);
-}
-
-.love-letter p {
-    margin-bottom: 1rem;
-    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
 }
 
 .signature {
-    text-align: right;
+    text-align: left;
     font-weight: bold;
-    font-size: 1.8rem;
+    font-size: 1.2rem;
     margin-top: 2rem;
     color: var(--heart-color);
 }
 
+/* RIGHT SIDE - TREE */
 .right-side {
     flex: 1;
     position: relative;
@@ -83,6 +83,8 @@ html {
     z-index: 10;
     pointer-events: none;
     animation: fadeIn 3s ease-in-out;
+    width: 100%;
+    text-align: center;
 }
 
 canvas {
@@ -91,7 +93,7 @@ canvas {
     height: 100%;
 }
 
-/* Animations */
+/* ANIMATIONS */
 @keyframes fadeIn {
     to {
         opacity: 1;
@@ -99,14 +101,23 @@ canvas {
     }
 }
 
-/* Floating ambient hearts background */
-.floating-heart {
+.floating-heart,
+.falling-heart-tree {
     position: absolute;
+    pointer-events: none;
+    user-select: none;
+}
+
+.floating-heart {
+    z-index: 0;
     color: rgba(255, 105, 180, 0.3);
     animation: floatUp linear infinite;
-    z-index: 0;
-    user-select: none;
-    pointer-events: none;
+}
+
+.falling-heart-tree {
+    color: #ff0000;
+    z-index: 20;
+    animation: fallDown linear forwards;
 }
 
 @keyframes floatUp {
@@ -129,16 +140,6 @@ canvas {
     }
 }
 
-/* Falling hearts from tree */
-.falling-heart-tree {
-    position: absolute;
-    color: #ff0000;
-    font-size: 20px;
-    z-index: 20;
-    pointer-events: none;
-    animation: fallDown linear forwards;
-}
-
 @keyframes fallDown {
     from {
         opacity: 1;
@@ -151,58 +152,54 @@ canvas {
     }
 }
 
-/* --- RESPONSIVE DESIGN --- */
-
-/* Mobile Portrait: Stacked (Tree on top, Text bottom) */
-@media (max-width: 900px) and (orientation: portrait) {
+/* --- FORCE LANDSCAPE ON MOBILE PORTRAIT --- */
+@media screen and (orientation: portrait) {
     .container {
-        flex-direction: column-reverse;
-        height: auto;
-        min-height: 100vh;
+        /* Force layout size to be 'Height x Width' of screen */
+        width: 100vh;
+        height: 100vw;
+
+        /* Center and Rotate */
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%) rotate(90deg);
+
+        /* Force Side-by-Side */
+        flex-direction: row;
     }
 
     .left-side {
         padding: 1rem;
     }
 
-    .right-side {
-        height: 50vh;
-        min-height: 400px;
-    }
-
-    body {
-        overflow-y: auto;
-    }
-}
-
-/* Mobile Landscape: Side-by-Side (User requested "deitado") */
-@media (max-height: 600px) and (orientation: landscape) {
-    .container {
-        flex-direction: row;
-        height: 100vh;
-        overflow: hidden;
-    }
-
-    .left-side {
-        flex: 1;
-        padding: 0.5rem;
-        overflow-y: auto;
-        display: block;
-    }
-
     .love-letter {
-        padding: 1.5rem;
+        padding: 1rem;
         font-size: 1rem;
-        margin: 1rem;
-    }
-
-    .right-side {
-        flex: 1;
-        height: 100%;
+        /* Smaller font for small screens */
+        max-height: 90%;
+        overflow-y: auto;
     }
 
     .days-counter {
         font-size: 1.5rem;
+        bottom: 10px;
+    }
+}
+
+/* --- LANDSCAPE MOBILE (NATIVE) --- */
+@media screen and (orientation: landscape) and (max-height: 600px) {
+    .container {
+        flex-direction: row;
+    }
+
+    .love-letter {
+        font-size: 0.9rem;
+        padding: 0.5rem;
+    }
+
+    .days-counter {
+        font-size: 1.4rem;
         bottom: 5px;
     }
 }
