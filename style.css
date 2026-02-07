@@ -68,7 +68,6 @@ html {
     flex: 1;
     position: relative;
     overflow: hidden;
-    /* Removed align-items: flex-end to avoid squashing canvas if it has no intrinsic height */
     height: 100%;
 }
 
@@ -152,19 +151,18 @@ canvas {
     }
 }
 
-/* Responsive Design */
-@media (max-width: 900px) {
+/* --- RESPONSIVE DESIGN --- */
+
+/* Mobile Portrait: Stacked (Tree on top, Text bottom) */
+@media (max-width: 900px) and (orientation: portrait) {
     .container {
         flex-direction: column-reverse;
-        /* Tree on top or bottom? Let's put tree on top for mobile visually or background */
         height: auto;
         min-height: 100vh;
-        overflow-y: auto;
     }
 
     .left-side {
         padding: 1rem;
-        min-height: 50vh;
     }
 
     .right-side {
@@ -173,7 +171,38 @@ canvas {
     }
 
     body {
-        overflow: auto;
-        /* Allow scrolling on mobile */
+        overflow-y: auto;
+    }
+}
+
+/* Mobile Landscape: Side-by-Side (User requested "deitado") */
+@media (max-height: 600px) and (orientation: landscape) {
+    .container {
+        flex-direction: row;
+        height: 100vh;
+        overflow: hidden;
+    }
+
+    .left-side {
+        flex: 1;
+        padding: 0.5rem;
+        overflow-y: auto;
+        display: block;
+    }
+
+    .love-letter {
+        padding: 1.5rem;
+        font-size: 1rem;
+        margin: 1rem;
+    }
+
+    .right-side {
+        flex: 1;
+        height: 100%;
+    }
+
+    .days-counter {
+        font-size: 1.5rem;
+        bottom: 5px;
     }
 }

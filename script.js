@@ -3,25 +3,56 @@ const ctx = canvas.getContext('2d');
 
 let width, height;
 
+// Debounce helper to prevent excessive resizing calls
+function debounce(func, wait) {
+    let timeout;
+    return function () {
+        const context = this, args = arguments;
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(context, args), wait);
+    };
+}
+
 function resize() {
     const parent = document.querySelector('.right-side');
     if (parent) {
-        width = canvas.width = parent.offsetWidth;
-        height = canvas.height = parent.offsetHeight;
+        // Get actual display size
+        const displayWidth = parent.clientWidth;
+        const displayHeight = parent.clientHeight;
+
+        if (displayWidth === 0 || displayHeight === 0) return; // Not visible yet
+
+        // Check Device Pixel Ratio for sharp rendering on mobile
+        const dpr = window.devicePixelRatio || 1;
+
+        // Set the internal resolution
+        canvas.width = displayWidth * dpr;
+        canvas.height = displayHeight * dpr;
+
+        // Set the CSS display size
+        canvas.style.width = displayWidth + 'px';
+        canvas.style.height = displayHeight + 'px';
+
+        // Normalize coordinate system to use CSS pixels
+        ctx.scale(dpr, dpr);
+
+        // Update global width/height for drawing logic (using logical pixels)
+        width = displayWidth;
+        height = displayHeight;
+
+        // Redraw
+        initTree();
     }
 }
 
-window.addEventListener('resize', () => {
-    resize();
-    initTree();
-});
-resize();
+// Listen to resize and orientation change
+window.addEventListener('resize', debounce(resize, 150));
+window.addEventListener('orientationchange', () => setTimeout(resize, 200));
 
-// --- CONFIGURATION ---
-const maxDepth = 12;
-const trunkWidth = 35;
+// --- TREE CONFIGURATION ---
 const branchColor = '#000000';
 const heartColors = ['#ff0000', '#c90000', '#ff4d6d', '#800f2f', '#ff8fa3'];
+let maxDepth = 12;
 
 function drawHeart(x, y, size, angle, color) {
     if (!color) color = heartColors[Math.floor(Math.random() * heartColors.length)];
@@ -55,16 +86,11 @@ function drawBranch(startX, startY, length, angle, depth, currentWidth) {
     ctx.lineCap = 'round';
     ctx.stroke();
 
-    // --- FOLIAGE (HEARTS ON TREE) ---
-    // Restoring hearts as requested. 
-    // "appear after trunk" and "gradually" -> Delayed rendering
-    // "not too many" -> Reduced density (density = 1)
+    // Hearts on tree (foliage)
     if (depth < 8) {
         const density = 1;
-
-        // Delay calculations to make hearts pop in AFTER branches are drawn
-        const baseDelay = (12 - depth) * 100; // Base delay based on distance from trunk
-        const randomDelay = Math.random() * 2000; // Random spread up to 2s
+        const baseDelay = (maxDepth - depth) * 50;
+        const randomDelay = Math.random() * 500;
 
         setTimeout(() => {
             for (let j = 0; j < density; j++) {
@@ -76,45 +102,59 @@ function drawBranch(startX, startY, length, angle, depth, currentWidth) {
                 const ox = (Math.random() - 0.5) * spread;
                 const oy = (Math.random() - 0.5) * spread;
 
-                const hSize = (12 + Math.random() * 15) * 1.3;
+                const hSize = (8 + Math.random() * 10) * 1.2;
                 const hAngle = (Math.random() - 0.5) * 1.5;
 
                 drawHeart(bx + ox, by + oy, hSize, hAngle);
             }
-        }, baseDelay + randomDelay + 500); // +500ms to ensure trunk is mostly done
+        }, baseDelay + randomDelay + 300);
     }
 
     if (depth === 0) return;
 
-    // --- BRANCHING LOGIC ---
-    // Keep branches snappy
-    const r = Math.random();
-    let subBranches;
-    if (r < 0.4) subBranches = 2;
-    else if (r < 0.9) subBranches = 3;
-    else subBranches = 4;
+    const subBranches = (Math.random() < 0.8) ? 2 : 3;
 
     setTimeout(() => {
         for (let i = 0; i < subBranches; i++) {
-            const angleVariance = 1.0;
+            const angleVariance = 0.8;
             const newAngle = angle + (Math.random() * angleVariance - angleVariance / 2);
-            const newLength = length * (0.65 + Math.random() * 0.15);
+            const newLength = length * (0.7 + Math.random() * 0.1);
             const newWidth = currentWidth * 0.7;
 
             drawBranch(endX, endY, newLength, newAngle, depth - 1, newWidth);
         }
-    }, 5);
+    }, 10);
 }
 
 function initTree() {
-    if (!width || !height) resize();
+    if (!width || !height) return;
+
+    // Clear canvas based on logical size
     ctx.clearRect(0, 0, width, height);
 
-    // Start drawing trunk - Increased length from 120 to 160
-    drawBranch(width / 2, height, 160, -Math.PI / 2, maxDepth, trunkWidth);
+    // Determine screen type
+    const isMobile = width < 768 || height < 600;
+
+    let initialLength, initialWidth;
+
+    if (isMobile) {
+        // Safe size for mobile to ensure it fits
+        maxDepth = 10; // Reduce depth for performance/size on mobile
+        initialLength = Math.min(height * 0.22, 110);
+        initialWidth = 18;
+    } else {
+        // Desktop
+        maxDepth = 12;
+        initialLength = 160;
+        initialWidth = 35;
+    }
+
+    // Draw trunk from bottom center
+    // We start slightly above the bottom to show the root
+    drawBranch(width / 2, height, initialLength, -Math.PI / 2, maxDepth, initialWidth);
 }
 
-// Falling hearts animation 
+// Falling hearts animation (DOM based)
 function spawnFallingHeart() {
     const container = document.querySelector('.right-side');
     if (!container) return;
@@ -134,7 +174,6 @@ function spawnFallingHeart() {
     heart.style.fontSize = size + 'px';
     heart.style.color = color;
 
-    // "Falling faster" -> Reduced duration (1s to 2.5s)
     heart.style.animationDuration = (1 + Math.random() * 1.5) + 's';
 
     container.appendChild(heart);
@@ -148,15 +187,15 @@ let fallingInterval;
 
 function startFallingHearts() {
     if (fallingInterval) clearInterval(fallingInterval);
-    // "Appear AFTER trunk" -> Wait 3 seconds before starting the rain
     setTimeout(() => {
-        // "Don't put too many" -> Slower interval (1500ms instead of 1000ms)
         fallingInterval = setInterval(spawnFallingHeart, 1500);
-    }, 3000);
+    }, 2000);
 }
 
 function createFloatingHearts() {
     const container = document.body;
+    // Don't remove old ones to avoid flickering, just ensure we have them?
+    // Better to clear for reset
     document.querySelectorAll('.floating-heart').forEach(h => h.remove());
 
     const count = 30;
@@ -171,11 +210,12 @@ function createFloatingHearts() {
     }
 }
 
+// Boot
 window.onload = () => {
+    // Force initial resize
     resize();
     createFloatingHearts();
-    setTimeout(initTree, 100);
-    startFallingHearts(); // This now has internal delay
+    startFallingHearts();
 };
 
 if (canvas) {
